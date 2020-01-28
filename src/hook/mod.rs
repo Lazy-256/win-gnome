@@ -3,7 +3,9 @@ Windows hooks.
 
 The most important thing to know is that the callbacks are context-less.
 
-You cannot pass a `self` of any kind to communicate to the outside world, the only way to get information out is through global mutable state. This is an API design limitation of `SetWindowsHookEx` itself.
+You cannot pass a `self` of any kind to communicate to the outside world, 
+the only way to get information out is through global mutable state. 
+This is an API design limitation of `SetWindowsHookEx` itself.
 
 # Examples
 
@@ -323,3 +325,6 @@ mod fg_changed;
 pub use self::fg_changed::*;
 mod capture_mouse;
 pub use self::capture_mouse::*;
+
+mod keyboard_ll;
+pub use self::keyboard_ll::*;

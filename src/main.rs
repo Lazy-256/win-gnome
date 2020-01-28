@@ -24,6 +24,7 @@ use window::win32_string;
 enum CornerAction {
     StartMenu,
     DesktopSelector,
+    ShowTray,
 }
 
 #[derive(PartialEq)]
@@ -33,12 +34,14 @@ enum TrayAction {
 }
 
 const IDENTIFIER: &str = "win_gnome";
-pub static mut SENSITIVITY: i32 = 100; // %
+pub static mut SENSITIVITY: i32 = 20; // %
 static mut DELAY: bool = false;
 static mut LASTX: i32 = 0;
 static mut LASTY: i32 = 0;
-static mut CORNER_ACTION: CornerAction = CornerAction::StartMenu;
+static mut CORNER_ACTION: CornerAction = CornerAction::ShowTray;
 static mut TRAY_ACTION: TrayAction = TrayAction::Hide;
+static mut TOP_ACTIVE_REG: bool = true;//false;
+static mut HK_HOLDING_TIME: i32 = 10; // 10ms
 #[allow(non_upper_case_globals)]
 pub static mut desktop: Desktop = Desktop::default();
 
@@ -63,6 +66,7 @@ unsafe fn on_hot_corner() {
         match CORNER_ACTION {
             CornerAction::StartMenu => desktop.open_start_menu(),
             CornerAction::DesktopSelector => desktop.open_desktop_selector(),
+            CornerAction::ShowTray => desktop.show_tray(),
         }
         delay_next(300);
     } else if desktop.shell_changed() { // full screen program && that full screen program might be new shell
@@ -114,6 +118,17 @@ windows_hook! {
         }
     }
 }
+
+windows_hook! {
+    pub fn keyboard_hook(context: &mut KeyboardLL) {
+        println!("keyboard_hook: {:?}", context);
+
+        // if context.message() == WM_MOUSEMOVE {
+        //     unsafe { mouse_move(context.pt_x(), context.pt_y()) };
+        // }
+    }
+}
+
 winevent_hook! {
     pub fn fg_hook(context: &mut FgWinEvent) {
         let hwnd = context.get_hwnd();
@@ -153,6 +168,10 @@ fn get_property(argument: String) -> (String, String) {
     )
 }
 
+// TODO: Set top surface as an active region : Done!
+// TODO: Do not show Start menu / show taskbar instead of the Start menu : Done!
+// TODO: Keyboard shortcuts 
+// TODO: Get list of all windows from the task panel
 fn main() {
     for (index, (prop, value)) in std::env::args().map(|arg| get_property(arg)).enumerate() {
         match (index, &prop[..], &value[..]) {
@@ -166,6 +185,7 @@ fn main() {
                     return ();
                 }
             },
+            (_, "--top", _) => unsafe { TOP_ACTIVE_REG = true },
             (_, "--help", _) => {
                 println!("WinGnome 0.1");
                 println!(

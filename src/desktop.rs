@@ -42,9 +42,16 @@ impl Tray {
             .unwrap_or_else(|| null_mut());
 
         let (start_width, start_height) = Desktop::get_window_dimensions(start_button);
-        let (hot_width, hot_height) = (
-            Tray::apply_sensitivity(start_width,  unsafe{ super::SENSITIVITY }),
-            Tray::apply_sensitivity(start_height,  unsafe{ super::SENSITIVITY }));
+        let (hot_width, hot_height) = if unsafe{ super::TOP_ACTIVE_REG == false}  {
+                (Tray::apply_sensitivity(start_width,  unsafe{ super::SENSITIVITY }),
+                 Tray::apply_sensitivity(start_height,  unsafe{ super::SENSITIVITY }))
+        } else  {
+            (parent_width,
+             Tray::apply_sensitivity(start_height,  unsafe{ super::SENSITIVITY })) };
+
+        println!("[Tray: parent_width = {:?}]", parent_width);
+        println!("[Tray:  (hot_width, hot_height) = {:?}, {:?}]", hot_width, hot_height);
+
         let orientation = Tray::get_orientation(parent_width, parent_height, Desktop::get_window_pos(bar));
         let start_menu = Desktop::find_window(Some("Windows.UI.Core.CoreWindow"), Some("Cortana"))
             .or_else(|| Desktop::find_by_position(
@@ -365,6 +372,11 @@ impl Desktop {
         keybd_event(VK_TAB as u8, 0, KEYEVENTF_KEYUP, 0);
         keybd_event(VK_LWIN as u8, 0, KEYEVENTF_KEYUP, 0);
     }
+
+    pub unsafe fn show_tray(&mut self) {
+        &self.tray.show();
+    }
+
     pub fn full_screen_program(&self) -> bool {
         if self.last_window == self.shell_parent || self.last_window == self.shell_window {
             false
