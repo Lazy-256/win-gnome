@@ -5,7 +5,7 @@ authors = ["x0a <x0a.cake@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-winapi = { version = "0.3.7", features = [
+winapi = { version = "0.3.8", features = [
     "winuser", 
     "libloaderapi",
     "windowsx", 
@@ -15,6 +15,9 @@ winapi = { version = "0.3.7", features = [
     "dwmapi"
 ]}
 external = { version = "0.1.0", git = "https://github.com/CasualX/external.git" }
+#winapi-i686-pc-windows-gnu # UIAutomation
+#winit = "0.22.0"
+#uiautomationcore-sys = "0.0.1"
 [profile.release]
 lto = true
 opt-level = 'z'  # Optimize for size.

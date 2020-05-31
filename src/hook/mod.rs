@@ -165,31 +165,31 @@ pub trait InvokeWin {
 ///
 
 #[macro_export]
-macro_rules! winevent_hook {
+macro_rules! winevent_hook_fg {
 	(@parse $prefix:tt [fn $name:ident($arg:ident: &mut FgWinEvent) $body:tt]) => {
-		winevent_hook!(@emit $prefix CallFg [fn $name($arg: &mut FgWinEvent) $body]);
+		winevent_hook_fg!(@emit $prefix CallFg [fn $name($arg: &mut FgWinEvent) $body]);
 	};
 	(@parse $prefix:tt [fn $name:ident($arg:ident: &mut MouseCaptureEvent) $body:tt]) => {
-		winevent_hook!(@emit $prefix CallCapture [fn $name($arg: &mut MouseCaptureEvent) $body]);
+		winevent_hook_fg!(@emit $prefix CallCapture [fn $name($arg: &mut MouseCaptureEvent) $body]);
 	};
 	(@parse $prefix:tt [fn $($tail:tt)*]) => {
 		env!("Unsupported argument fn: expected `&mut KeyboardLL` or `&mut MouseLL`. Check spelling?");
 	};
 	(@parse $prefix:tt [type $name:ident($arg:ident: &mut FgWinEvent) $body:tt]) => {
-		winevent_hook!(@emit $prefix CallFg [type $name($arg: &mut FgWinEvent) $body]);
+		winevent_hook_fg!(@emit $prefix CallFg [type $name($arg: &mut FgWinEvent) $body]);
 	};
 	(@parse $prefix:tt [type $name:ident($arg:ident: &mut MouseCaptureEvent) $body:tt]) => {
-		winevent_hook!(@emit $prefix CallCapture [type $name($arg: &mut MouseCaptureEvent) $body]);
+		winevent_hook_fg!(@emit $prefix CallCapture [type $name($arg: &mut MouseCaptureEvent) $body]);
 	};
 
 	(@parse [$($prefix:tt)*] [$head:tt $($tail:tt)*]) => {
-		winevent_hook!(@parse [$($prefix)* $head] [$($tail)*]);
+		winevent_hook_fg!(@parse [$($prefix)* $head] [$($tail)*]);
 	};
 	// Emits the given name as a registration function.
 	(@emit [$($prefix:tt)*] $call:ident [fn $name:ident($arg:ident: &mut $ty:ident) $body:tt]) => {
 		$($prefix)*
 		fn $name() -> Result<$crate::hook::WinHook, $crate::errors::ErrorCode> {
-			winevent_hook!(@emit [] $call [type T($arg: &mut $ty) $body]);
+			winevent_hook_fg!(@emit [] $call [type T($arg: &mut $ty) $body]);
 			T::register()
 		}
 	};
@@ -218,57 +218,57 @@ macro_rules! winevent_hook {
 	// Macro entry point
 
 	($($tail:tt)*) => {
-		winevent_hook!(@parse [] [$($tail)*]);
-	};
-}
-macro_rules! windows_hook {
-	//----------------------------------------------------------------
-	// Parser rules
-
-	// Match the `KeyboardLL` callback fn
-	(@parse $prefix:tt [fn $name:ident($arg:ident: &mut KeyboardLL) $body:tt]) => {
-		windows_hook!(@emit $prefix CallKeyboardLL [fn $name($arg: &mut KeyboardLL) $body]);
-	};
-	// Match the `MouseLL` callback fn
-	(@parse $prefix:tt [fn $name:ident($arg:ident: &mut MouseLL) $body:tt]) => {
-		windows_hook!(@emit $prefix CallMouseLL [fn $name($arg: &mut MouseLL) $body]);
+		winevent_hook_fg!(@parse [] [$($tail)*]);
 	};
 
-	// Match every other callback fn
-	(@parse $prefix:tt [fn $($tail:tt)*]) => {
-		//env!("Unsupported argument fn: expected `&mut KeyboardLL` or `&mut MouseLL`. Check spelling?");
-	};
+//	macro_rules! windows_hook_fg {
+// 	//----------------------------------------------------------------
+// 	// Parser rules
 
-	// Match the `KeyboardLL` callback type
-	(@parse $prefix:tt [type $name:ident($arg:ident: &mut KeyboardLL) $body:tt]) => {
-		windows_hook!(@emit $prefix CallKeyboardLL [type $name($arg: &mut KeyboardLL) $body]);
-	};
-	// Match the `MouseLL` callback type
-	(@parse $prefix:tt [type $name:ident($arg:ident: &mut MouseLL) $body:tt]) => {
-		windows_hook!(@emit $prefix CallMouseLL [type $name($arg: &mut MouseLL) $body]);
-	};
-	// Match every other callback type
-	(@parse $prefix:tt [type $($tail:tt)*]) => {
-		env!("Unsupported argument type: expected `&mut KeyboardLL` or `&mut MouseLL`. Check spelling?");
-	};
+// 	// Match the `KeyboardLL` callback fn
+// 	(@parse $prefix:tt [fn $name:ident($arg:ident: &mut KeyboardLL) $body:tt]) => {
+// 		windows_hook!(@emit $prefix CallKeyboardLL [fn $name($arg: &mut KeyboardLL) $body]);
+// 	};
+// 	// Match the `MouseLL` callback fn
+// 	(@parse $prefix:tt [fn $name:ident($arg:ident: &mut MouseLL) $body:tt]) => {
+// 		windows_hook!(@emit $prefix CallMouseLL [fn $name($arg: &mut MouseLL) $body]);
+//};
 
-	// TT muncher pealing off prefixes
-	(@parse [$($prefix:tt)*] [$head:tt $($tail:tt)*]) => {
-		windows_hook!(@parse [$($prefix)* $head] [$($tail)*]);
-	};
-	// Catches the case where no `fn` or `type` token is found
-	(@parse $prefix:tt []) => {
-		env!("Invalid syntax: expected an `fn` or `type` token.");
-	};
+ 	// // Match every other callback fn
+ 	// (@parse $prefix:tt [fn $($tail:tt)*]) => {
+ 	// 	env!("Unsupported argument fn: expected `&mut KeyboardLL` or `&mut MouseLL`. Check spelling?");
+ 	// };
 
-	//----------------------------------------------------------------
-	// Emits the finalized code
+// 	// Match the `KeyboardLL` callback type
+// 	(@parse $prefix:tt [type $name:ident($arg:ident: &mut KeyboardLL) $body:tt]) => {
+// 		windows_hook!(@emit $prefix CallKeyboardLL [type $name($arg: &mut KeyboardLL) $body]);
+// 	};
+// 	// Match the `MouseLL` callback type
+// 	(@parse $prefix:tt [type $name:ident($arg:ident: &mut MouseLL) $body:tt]) => {
+// 		windows_hook!(@emit $prefix CallMouseLL [type $name($arg: &mut MouseLL) $body]);
+// 	};
+ 	// // Match every other callback type
+ 	// (@parse $prefix:tt [type $($tail:tt)*]) => {
+ 	// 	env!("Unsupported argument type: expected `&mut KeyboardLL` or `&mut MouseLL`. Check spelling?");
+ 	// };
+
+// 	// TT muncher pealing off prefixes
+// 	(@parse [$($prefix:tt)*] [$head:tt $($tail:tt)*]) => {
+// 		windows_hook!(@parse [$($prefix)* $head] [$($tail)*]);
+// 	};
+// 	// Catches the case where no `fn` or `type` token is found
+// 	(@parse $prefix:tt []) => {
+// 		env!("Invalid syntax: expected an `fn` or `type` token.");
+// 	};
+
+// 	//----------------------------------------------------------------
+// 	// Emits the finalized code
 
 	// Emits the given name as a registration function.
 	(@emit [$($prefix:tt)*] $call:ident [fn $name:ident($arg:ident: &mut $ty:ident) $body:tt]) => {
 		$($prefix)*
 		fn $name() -> Result<$crate::hook::Hook, $crate::errors::ErrorCode> {
-			windows_hook!(@emit [] $call [type T($arg: &mut $ty) $body]);
+			windows_hook_fg!(@emit [] $call [type T($arg: &mut $ty) $body]);
 			T::register()
 		}
 	};
@@ -293,11 +293,11 @@ macro_rules! windows_hook {
 		}
 	};
 
-	//----------------------------------------------------------------
-	// Macro entry point
+// 	//----------------------------------------------------------------
+// 	// Macro entry point
 
 	($($tail:tt)*) => {
-		windows_hook!(@parse [] [$($tail)*]);
+		windows_hook_fg!(@parse [] [$($tail)*]);
 	};
 }
 
@@ -319,12 +319,12 @@ impl Drop for WinHook {
 	}
 }
 
-mod mouse_ll;
-pub use self::mouse_ll::*;
+//mod mouse_ll;
+//pub use self::mouse_ll::*;
 mod fg_changed;
 pub use self::fg_changed::*;
-mod capture_mouse;
-pub use self::capture_mouse::*;
+//mod capture_mouse;
+//pub use self::capture_mouse::*;
 
-mod keyboard_ll;
-pub use self::keyboard_ll::*;
+//mod keyboard_ll;
+//pub use self::keyboard_ll::*;

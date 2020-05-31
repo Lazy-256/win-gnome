@@ -1,10 +1,12 @@
-use crate::window::win32_string;
+use crate::window_util::win32_string;
 use winapi::shared::windef::{HWND, RECT};
+//see: external::winapi::*;
 use winapi::um::winuser::{
     keybd_event, FindWindowExW, FindWindowW, GetClassNameW, GetDesktopWindow, GetForegroundWindow,
     GetWindowRect, ShowWindow, IsWindow, GetWindowLongW, GetParent, GetWindowTextW,
     KEYEVENTF_KEYUP, SW_HIDE, SW_SHOW, VK_LWIN, VK_TAB, GWL_STYLE, GWL_EXSTYLE, WS_VISIBLE
 };
+
 use winapi::um::dwmapi::{DwmGetWindowAttribute, DwmFlush, DWMWA_CLOAKED};
 use winapi::ctypes::c_void;
 use std::ptr::null_mut;
@@ -146,6 +148,7 @@ impl Tray {
     pub fn show(&mut self) {
         unsafe { ShowWindow(self.bar, SW_SHOW) };
         self.showing = true;
+        unsafe{ super::desktop._debug_window(self.bar) };
     }
     fn get_orientation(
         width: i32,
@@ -268,8 +271,10 @@ impl Desktop {
     }
     pub fn get_actual_desktop(top_desktop: HWND) -> Result<(i32, i32, HWND, HWND), &'static str> {
         let (width, height) = Desktop::get_window_dimensions(top_desktop);
+        //unsafe{ super::desktop._debug_window(top_desktop) };
         let shell_parent = Desktop::find_by_dimensions(top_desktop, "WorkerW", width, height)
-            .or_else(|| Desktop::find_by_dimensions(top_desktop, "Progman", width, height))
+            .or_else(|| Desktop::find_by_dimensions(top_desktop, "#32769 (Рабочий стол)", width, height))
+            .or_else(|| Desktop::find_by_dimensions(top_desktop, "Progman", width, height))            
             .ok_or_else(|| "Could not find desktop window")?;
         let shell_window = Desktop::find_child(shell_parent, "SHELLDLL_DefView")
             .ok_or_else(|| "Could not find shell window")?;
@@ -282,8 +287,11 @@ impl Desktop {
         width: i32,
         height: i32,
     ) -> Option<HWND> {
+        println!("desktop::find_by_dimensions class_name: {:?}; width:{:?}; height:{:?}", 
+            class_name, width, height);
         let search = win32_string(class_name).as_ptr();
         let mut desktop_window = unsafe { FindWindowW(search, null_mut()) };
+        unsafe{ super::desktop._debug_window(desktop_window) };
 
         while !desktop_window.is_null() {
             let (_width, _height) = Desktop::get_window_dimensions(desktop_window);
@@ -291,6 +299,7 @@ impl Desktop {
                 return Some(desktop_window);
             }
             desktop_window = unsafe { FindWindowExW(parent, desktop_window, search, null_mut()) };
+            unsafe{ super::desktop._debug_window(desktop_window) };
         }
         None
     }

@@ -3,14 +3,14 @@
 extern crate winapi;
 pub mod errors;
 #[macro_use]
-mod hook;
 mod desktop;
-mod window;
+mod window_util;
 
-use std::alloc::System;
-use std::ptr::null_mut;
-use std::thread;
-use std::time::Duration;
+use std::{alloc::System, env, ptr::null_mut, thread, time, time::Duration, rc::Rc,};
+use external::vk::VirtualKey;
+use external::wndclass::{pump_once, sleep};
+use external::windows_hook;
+use external::hook::{KeyboardLL, MouseLL};
 
 #[global_allocator]
 static A: System = System;
@@ -18,8 +18,16 @@ static A: System = System;
 use winapi::um::winuser::{
     MessageBoxW, RegisterHotKey, MB_ICONEXCLAMATION, MB_OK, MOD_WIN, VK_ESCAPE, WM_MOUSEMOVE
 };
+
 use desktop::Desktop;
-use window::win32_string;
+//use external::window;
+use window_util::win32_string;
+
+#[macro_use]
+mod hook;
+//use hook::FgWinEvent;
+
+mod MarkerWnd;
 
 enum CornerAction {
     StartMenu,
@@ -62,6 +70,7 @@ unsafe fn on_hot_corner() {
         
         if TRAY_ACTION == TrayAction::Hide {
             desktop.tray.show();
+            println!("main on_hot_corner: desktop.tray.show();");
         }
         match CORNER_ACTION {
             CornerAction::StartMenu => desktop.open_start_menu(),
@@ -88,6 +97,7 @@ unsafe fn on_leaving_corner(force: bool){
         desktop.hot_active = true;
     }
 }
+
 unsafe fn mouse_move(x: i32, y: i32) {
     LASTX = x;
     LASTY = y;
@@ -121,15 +131,15 @@ windows_hook! {
 
 windows_hook! {
     pub fn keyboard_hook(context: &mut KeyboardLL) {
+        #[cfg(debug_assertions)]
         println!("keyboard_hook: {:?}", context);
+        #[cfg(debug_assertions)]
+        dbg!(&context);
 
-        // if context.message() == WM_MOUSEMOVE {
-        //     unsafe { mouse_move(context.pt_x(), context.pt_y()) };
-        // }
     }
 }
 
-winevent_hook! {
+winevent_hook_fg! {
     pub fn fg_hook(context: &mut FgWinEvent) {
         let hwnd = context.get_hwnd();
         
@@ -171,7 +181,15 @@ fn get_property(argument: String) -> (String, String) {
 // TODO: Set top surface as an active region : Done!
 // TODO: Do not show Start menu / show taskbar instead of the Start menu : Done!
 // TODO: Keyboard shortcuts 
-// TODO: Get list of all windows from the task panel
+// TODO: Alt + Win =>  show active windows key-shortcuts
+// TODO: Get list of all windows from the task panel (see: fastwindowswitcher)
+//  see: https://www.tcx.be/blog/2006/list-open-windows/
+//  implement UIAutomation in C++
+//  see: ritual, rust-cpp 
+// TODO: Set focus to left/right/top/bottom window
+// TODO: Hide hiden windows from Alt + Tab
+
+#[allow(dead_code)]
 fn main() {
     for (index, (prop, value)) in std::env::args().map(|arg| get_property(arg)).enumerate() {
         match (index, &prop[..], &value[..]) {
@@ -187,7 +205,7 @@ fn main() {
             },
             (_, "--top", _) => unsafe { TOP_ACTIVE_REG = true },
             (_, "--help", _) => {
-                println!("WinGnome 0.1");
+                println!("WinGnome 0.2");
                 println!(
                     "\t--selector\tOpens Desktop selector on hot corner as opposed to opening menu\n\
                      \t--sensitivity=X\tSpecifies size of hot corner as percent of start button, must be between 1-100\n\
@@ -203,7 +221,7 @@ fn main() {
     }
 
     unsafe {
-        if window::previous_instance(IDENTIFIER) {
+        if window_util::previous_instance(IDENTIFIER) {
             MessageBoxW(
                 null_mut(),
                 win32_string("Previous instance of win-gnome already running").as_ptr(),
@@ -213,7 +231,33 @@ fn main() {
             return ();
         }
 
-        let _window = window::create_hidden_window(IDENTIFIER).unwrap();
+        let _window = window_util::create_hidden_window(IDENTIFIER).unwrap();
+        println!("main _window: {:?}", _window.handle);
+
+        //let prntHWND: Rc<winapi::shared::windef::HWND> = Rc::new(_window.handle);
+        //Rc::try_unwrap(prntHWND).unwrap()
+        let t = thread::spawn(move||{
+            let mut _mrkwnd = MarkerWnd::MarkerWnd::create_window(5, 25, 1000, 500).unwrap();
+            println!("_mrkwnd: {:?}", &_mrkwnd.handle); 
+            
+            let hotkey_callback = || {
+                true
+            };
+    
+            let close_callback = || {
+                false
+            };
+
+            loop {
+                if !MarkerWnd::MarkerWnd::handle_message( &mut _mrkwnd, 
+                        &hotkey_callback,
+                        &close_callback ) {
+                    break;
+                }
+            }  
+        });
+        //t.join().unwrap();
+
         desktop = loop {
             match Desktop::new() {
                 Ok(next_desktop) => break next_desktop,
@@ -246,6 +290,9 @@ fn main() {
             .expect("Unable to install system-wide mouse hook");
         let _fhook = fg_hook()
             .expect("Unable to install system-side foreground hook");
+        let _khook = keyboard_hook()
+            .expect("Unable to install system-side keyboard hook");
+           
         RegisterHotKey(_window.handle, 0, MOD_WIN as u32, VK_ESCAPE as u32);
 
         if TRAY_ACTION == TrayAction::Hide {
@@ -253,7 +300,7 @@ fn main() {
         }
 
         loop {
-            if !window::handle_message(&_window, &hotkey_callback, &close_callback) {
+            if !window_util::handle_message(&_window, &hotkey_callback, &close_callback) {
                 break;
             }
         }
